@@ -49,6 +49,20 @@ full_salary$team_id <- ifelse(full_salary$team_id=="NOH", "NOP", full_salary$tea
 full_salary$team_id <- ifelse(full_salary$team_id=="NJN", "BKN", full_salary$team_id)
 full_salary$fran_id <- ifelse(full_salary$team_id=="TOR", "Raptors", full_salary$fran_id)
 
+cap <- read.csv("cap.csv")
+
+cap$sal <- cap$sal %>% 
+  str_replace_all(c("[$]" = "", "," = ""))
+
+cap$sal <- as.numeric(cap$sal)
+
+for (i in 1:length(full_salary$player)) {
+  full_salary$cap[i] <- cap$sal[which(cap$year_end == full_salary$year_end[i])]
+}
+
+full_salary$per_cap <- full_salary$salary / full_salary$cap
+full_salary$sal_2020 <- full_salary$per_cap * cap$sal[36]
+
 write.csv(full_salary, "salary_partialprep.csv", row.names = FALSE)
 
 salary <- sqldf('SELECT year_end, team_id, fran_id, SUM(salary) AS tot_sal, AVG(salary) AS avg_sal, 
@@ -102,6 +116,12 @@ full_players <- full_players[-rows_to_remove,]
 full_players$player <- full_players$player %>% 
   str_replace_all(c("\\*" = ""))
 
+full_players$GB <- full_players$G - full_players$GS
+
+###To fix stats: either center around 100, or do percentiles? or do % above or below average and then center 
+###around 100. For the second two ideas, split into list of dfs based on year_end, then loop through lists
+###finding averages and calculating new numbers, then combine everything.
+
 write.csv(full_players, "player_stats_prepped.csv", row.names = FALSE)
 rm(list = ls())
 
@@ -113,7 +133,8 @@ player_stats <- read.csv(file = "player_stats_prepped.csv")
 player_salary$id <- paste0(player_salary$player, "-", player_salary$year_end, "-", player_salary$team_id)
 player_stats$id <- paste0(player_stats$player, "-", player_stats$year_end, "-", player_stats$team_id)
 
-player_info_na <- sqldf('SELECT player_stats.*, player_salary.salary
+player_info_na <- sqldf('SELECT player_stats.*, player_salary.salary, 
+                          player_salary.per_cap, player_salary.sal_2020
                      FROM player_stats
                      LEFT JOIN player_salary
                      ON player_stats.id = player_salary.id')
@@ -126,7 +147,7 @@ rm(list=ls())
 ## Further changes to player_info ##
 
 impact_stats <- read.csv("player_info_prepped.csv")
-impact_stats <- impact_stats[c(1:8, 18:26, 48:50)]
+impact_stats <- impact_stats[c(1:8, 18:26, 48:52)]
 impact_stats$sal_per_min <- impact_stats$salary / impact_stats$MP
 impact_stats$sal_per_WS <- impact_stats$salary / impact_stats$WS
 impact_stats$sal_per_BPM <- impact_stats$salary / impact_stats$BPM
