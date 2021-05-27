@@ -122,6 +122,8 @@ full_players$GB <- full_players$G - full_players$GS
 ###around 100. For the second two ideas, split into list of dfs based on year_end, then loop through lists
 ###finding averages and calculating new numbers, then combine everything.
 
+##also, should do some stuff around position and gs, gb on a team level so I don't forget
+
 write.csv(full_players, "player_stats_prepped.csv", row.names = FALSE)
 rm(list = ls())
 
