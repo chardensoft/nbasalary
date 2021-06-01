@@ -3,6 +3,7 @@ library(readxl)
 library(sqldf)
 library(dplyr)
 library(stringr)
+rm(list = ls())
 
 ##ELO PREP##
 
@@ -16,13 +17,15 @@ full_elo$team_id <- ifelse(full_elo$fran_id=="Pelicans", "NOP", full_elo$team_id
 full_elo$team_id <- ifelse(full_elo$fran_id=="Nets", "BKN", full_elo$team_id)
 full_elo$team_id <- ifelse(full_elo$fran_id=="Wizards", "WAS", full_elo$team_id)
 full_elo$team_id <- ifelse(full_elo$fran_id=="Thunder", "OKC", full_elo$team_id)
-full_elo$team_id <- ifelse(full_elo$fran_id=="Grizzlies", "VAN", full_elo$team_id)
+full_elo$team_id <- ifelse(full_elo$fran_id=="Grizzlies", "MEM", full_elo$team_id)
 
 write.csv(full_elo, "elo_partialprep.csv", row.names = FALSE)
 
 elo <- sqldf('SELECT *, MAX(elo_n) AS MaxElo 
              FROM full_elo 
              GROUP BY year_end, team_id')
+
+elo <- elo[c(1:3, 5)]
 
 write.csv(elo, "elo_prepped.csv", row.names = FALSE)
 rm(list = ls())
@@ -76,8 +79,8 @@ rm(list = ls())
 ### Player Prep ###
 
 full_players <- read.csv(file = "Player_stats.csv")
-full_players <- full_players[c(2:3, 6:21, 23:26, 28:53)]
-names(full_players)[c(1:3)] <- c("year_end", "player", "team_id")
+full_players <- full_players[c(2:21, 23:26, 28:53)]
+names(full_players)[c(1:5)] <- c("year_end", "player", "pos", "age", "team_id")
 
 full_players$team_id <- ifelse(full_players$team_id=="WSB", "WAS", full_players$team_id)
 full_players$team_id <- ifelse(full_players$team_id=="CHH", "CHA", full_players$team_id)
@@ -117,12 +120,19 @@ full_players$player <- full_players$player %>%
   str_replace_all(c("\\*" = ""))
 
 full_players$GB <- full_players$G - full_players$GS
+full_players$Bench <- ifelse((full_players$GB > (full_players$G / 2)), "Bench", "Starter")
 
-###To fix stats: either center around 100, or do percentiles? or do % above or below average and then center 
-###around 100. For the second two ideas, split into list of dfs based on year_end, then loop through lists
-###finding averages and calculating new numbers, then combine everything.
+full_players_list <- split(full_players, full_players$year_end)
 
-##also, should do some stuff around position and gs, gb on a team level so I don't forget
+for (i in 1:length(full_players_list)) {
+  full_players_list[[i]]$AdjPER <- cume_dist(full_players_list[[i]]$PER)*100
+  full_players_list[[i]]$AdjWS <- cume_dist(full_players_list[[i]]$WS)*100
+  full_players_list[[i]]$AdjBPM <- cume_dist(full_players_list[[i]]$BPM)*100
+  full_players_list[[i]]$AdjVORP <- cume_dist(full_players_list[[i]]$VORP)*100
+  full_players_list[[i]]$AdjPTS <- cume_dist(full_players_list[[i]]$PTS)*100
+}
+
+full_players <- bind_rows(full_players_list)
 
 write.csv(full_players, "player_stats_prepped.csv", row.names = FALSE)
 rm(list = ls())
@@ -149,16 +159,37 @@ rm(list=ls())
 ## Further changes to player_info ##
 
 impact_stats <- read.csv("player_info_prepped.csv")
-impact_stats <- impact_stats[c(1:8, 18:26, 48:52)]
-impact_stats$sal_per_min <- impact_stats$salary / impact_stats$MP
-impact_stats$sal_per_WS <- impact_stats$salary / impact_stats$WS
-impact_stats$sal_per_BPM <- impact_stats$salary / impact_stats$BPM
-impact_stats$sal_per_PTS <- impact_stats$salary / impact_stats$PTS
-impact_stats$sal_per_PER <- impact_stats$salary / impact_stats$PER
-impact_stats$sal_per_VORP <- impact_stats$salary / impact_stats$VORP
-impact_stats$sal_per_USG <- impact_stats$salary / impact_stats$USG.
+impact_stats <- impact_stats[c(1:8,20,50,52:61)]
+
+impact_stats <- impact_stats[-c(which(impact_stats$MP == 0)),]
+impact_stats <- impact_stats[-c(which(impact_stats$USG. == 0)),]
+
+impact_stats$sal_per_min <- (impact_stats$per_cap * 100) / impact_stats$MP
+impact_stats$sal_per_WS <- (impact_stats$per_cap * 100) / impact_stats$AdjWS
+impact_stats$sal_per_BPM <- (impact_stats$per_cap * 100) / impact_stats$AdjBPM
+impact_stats$sal_per_PTS <- (impact_stats$per_cap * 100) / impact_stats$AdjPTS
+impact_stats$sal_per_PER <- (impact_stats$per_cap * 100) / impact_stats$AdjPER
+impact_stats$sal_per_VORP <- (impact_stats$per_cap * 100) / impact_stats$AdjVORP
+impact_stats$sal_per_USG <- (impact_stats$per_cap * 100) / impact_stats$USG.
 
 write.csv(impact_stats, "impact_stats.csv", row.names = FALSE)
+rm(list = ls())
+
+impact_stats <- read.csv("player_info_prepped.csv")
+impact_stats <- impact_stats[c(1:8,20,50,52:61)]
+
+impact_stats <- impact_stats[-c(which(impact_stats$MP == 0)),]
+impact_stats <- impact_stats[-c(which(impact_stats$USG. == 0)),]
+
+impact_stats$sal_per_min <- impact_stats$sal_2020 / impact_stats$MP
+impact_stats$sal_per_WS <- impact_stats$sal_2020 / impact_stats$AdjWS
+impact_stats$sal_per_BPM <- impact_stats$sal_2020 / impact_stats$AdjBPM
+impact_stats$sal_per_PTS <- impact_stats$sal_2020 / impact_stats$AdjPTS
+impact_stats$sal_per_PER <- impact_stats$sal_2020 / impact_stats$AdjPER
+impact_stats$sal_per_VORP <- impact_stats$sal_2020 / impact_stats$AdjVORP
+impact_stats$sal_per_USG <- impact_stats$sal_2020 / impact_stats$USG.
+
+write.csv(impact_stats, "impact_stats_adj.csv", row.names = FALSE)
 rm(list=ls())
 
 ##Combine player data into team data ##
@@ -170,14 +201,67 @@ impact_stats <- read.csv("impact_stats.csv")
 elo$id <- paste0(elo$team_id, "-", elo$year_end)
 team_salary$id <- paste0(team_salary$team_id, "-", team_salary$year_end)
 impact_stats$teamID <- paste0(impact_stats$team_id, "-", impact_stats$year_end)
+impact_stats$posID <- paste0(impact_stats$teamID, "-", impact_stats$pos)
+impact_stats$benchID <- paste0(impact_stats$teamID, "-", impact_stats$Bench)
 
 team_sal_elo <- sqldf('SELECT team_salary.*, elo.MaxElo
                      FROM team_salary
                      LEFT JOIN elo
                      ON team_salary.id = elo.id')
 
+building_master_bench <- sqldf('SELECT impact_stats.teamID, impact_stats.benchID,
+                                  COUNT(impact_stats.per_cap) AS ct_bench,
+                                  SUM(impact_stats.per_cap) AS tot_sal
+                               FROM impact_stats
+                               GROUP BY impact_stats.benchID')
+
+building_master_test <- sqldf('SELECT impact_stats.teamID, impact_stats.posID,
+                                COUNT(impact_stats.per_cap) AS ct_pos,
+                                SUM(impact_stats.per_cap) AS tot_sal, 
+                                SUM(impact_stats.sal_per_min) AS tot_spMP, 
+                                SUM(impact_stats.sal_per_WS) AS tot_spWS, 
+                                SUM(impact_stats.sal_per_BPM) AS tot_spBPM, 
+                                SUM(impact_stats.sal_per_PTS) AS tot_spPTS,
+                                SUM(impact_stats.sal_per_PER) AS tot_spPER, 
+                                SUM(impact_stats.sal_per_VORP) AS tot_spVORP, 
+                                SUM(impact_stats.sal_per_USG) AS tot_spUSG,
+                                AVG(impact_stats.per_cap) AS avg_sal, 
+                                AVG(impact_stats.sal_per_min) AS avg_spMP, 
+                                AVG(impact_stats.sal_per_WS) AS avg_spWS, 
+                                AVG(impact_stats.sal_per_BPM) AS avg_spBPM, 
+                                AVG(impact_stats.sal_per_PTS) AS avg_spPTS,
+                                AVG(impact_stats.sal_per_PER) AS avg_spPER, 
+                                AVG(impact_stats.sal_per_VORP) AS avg_spVORP, 
+                                AVG(impact_stats.sal_per_USG) AS avg_spUSG,
+                                MAX(impact_stats.per_cap) AS max_sal, 
+                                MAX(impact_stats.sal_per_min) AS max_spMP, 
+                                MAX(impact_stats.sal_per_WS) AS max_spWS, 
+                                MAX(impact_stats.sal_per_BPM) AS max_spBPM, 
+                                MAX(impact_stats.sal_per_PTS) AS max_spPTS,
+                                MAX(impact_stats.sal_per_PER) AS max_spPER, 
+                                MAX(impact_stats.sal_per_VORP) AS max_spVORP, 
+                                MAX(impact_stats.sal_per_USG) AS max_spUSG,
+                                MIN(impact_stats.per_cap) AS min_sal, 
+                                MIN(impact_stats.sal_per_min) AS min_spMP, 
+                                MIN(impact_stats.sal_per_WS) AS min_spWS, 
+                                MIN(impact_stats.sal_per_BPM) AS min_spBPM, 
+                                MIN(impact_stats.sal_per_PTS) AS min_spPTS,
+                                MIN(impact_stats.sal_per_PER) AS min_spPER, 
+                                MIN(impact_stats.sal_per_VORP) AS min_spVORP, 
+                                MIN(impact_stats.sal_per_USG) AS min_spUSG,
+                                STDEV(impact_stats.per_cap) AS std_sal, 
+                                STDEV(impact_stats.sal_per_min) AS std_spMP, 
+                                STDEV(impact_stats.sal_per_WS) AS std_spWS, 
+                                STDEV(impact_stats.sal_per_BPM) AS std_spBPM, 
+                                STDEV(impact_stats.sal_per_PTS) AS std_spPTS,
+                                STDEV(impact_stats.sal_per_PER) AS std_spPER, 
+                                STDEV(impact_stats.sal_per_VORP) AS std_spVORP, 
+                                STDEV(impact_stats.sal_per_USG) AS std_spUSG
+                             FROM impact_stats
+                             GROUP BY impact_stats.posID')
+
 building_master <- sqldf('SELECT impact_stats.teamID,
-                            SUM(impact_stats.salary) AS tot_sal, 
+                            SUM(impact_stats.per_cap) AS tot_sal, 
                             SUM(impact_stats.sal_per_min) AS tot_spMP, 
                             SUM(impact_stats.sal_per_WS) AS tot_spWS, 
                             SUM(impact_stats.sal_per_BPM) AS tot_spBPM, 
@@ -185,7 +269,7 @@ building_master <- sqldf('SELECT impact_stats.teamID,
                             SUM(impact_stats.sal_per_PER) AS tot_spPER, 
                             SUM(impact_stats.sal_per_VORP) AS tot_spVORP, 
                             SUM(impact_stats.sal_per_USG) AS tot_spUSG,
-                            AVG(impact_stats.salary) AS avg_sal, 
+                            AVG(impact_stats.per_cap) AS avg_sal, 
                             AVG(impact_stats.sal_per_min) AS avg_spMP, 
                             AVG(impact_stats.sal_per_WS) AS avg_spWS, 
                             AVG(impact_stats.sal_per_BPM) AS avg_spBPM, 
@@ -193,7 +277,7 @@ building_master <- sqldf('SELECT impact_stats.teamID,
                             AVG(impact_stats.sal_per_PER) AS avg_spPER, 
                             AVG(impact_stats.sal_per_VORP) AS avg_spVORP, 
                             AVG(impact_stats.sal_per_USG) AS avg_spUSG,
-                            MAX(impact_stats.salary) AS max_sal, 
+                            MAX(impact_stats.per_cap) AS max_sal, 
                             MAX(impact_stats.sal_per_min) AS max_spMP, 
                             MAX(impact_stats.sal_per_WS) AS max_spWS, 
                             MAX(impact_stats.sal_per_BPM) AS max_spBPM, 
@@ -201,7 +285,7 @@ building_master <- sqldf('SELECT impact_stats.teamID,
                             MAX(impact_stats.sal_per_PER) AS max_spPER, 
                             MAX(impact_stats.sal_per_VORP) AS max_spVORP, 
                             MAX(impact_stats.sal_per_USG) AS max_spUSG,
-                            MIN(impact_stats.salary) AS min_sal, 
+                            MIN(impact_stats.per_cap) AS min_sal, 
                             MIN(impact_stats.sal_per_min) AS min_spMP, 
                             MIN(impact_stats.sal_per_WS) AS min_spWS, 
                             MIN(impact_stats.sal_per_BPM) AS min_spBPM, 
@@ -209,7 +293,7 @@ building_master <- sqldf('SELECT impact_stats.teamID,
                             MIN(impact_stats.sal_per_PER) AS min_spPER, 
                             MIN(impact_stats.sal_per_VORP) AS min_spVORP, 
                             MIN(impact_stats.sal_per_USG) AS min_spUSG,
-                            STDEV(impact_stats.salary) AS std_sal, 
+                            STDEV(impact_stats.per_cap) AS std_sal, 
                             STDEV(impact_stats.sal_per_min) AS std_spMP, 
                             STDEV(impact_stats.sal_per_WS) AS std_spWS, 
                             STDEV(impact_stats.sal_per_BPM) AS std_spBPM, 
@@ -220,15 +304,190 @@ building_master <- sqldf('SELECT impact_stats.teamID,
                         FROM impact_stats
                         GROUP BY impact_stats.teamID')
 
+for (i in 1:length(building_master$teamID)) {
+  building_master$sal_C[i] <- ifelse(length(which(building_master_test$posID == paste0(
+    building_master$teamID[i], "-C"))) == 0, "NA", building_master_test$tot_sal[c(which(
+    building_master_test$posID == paste0(building_master$teamID[i], "-C")))])
+  building_master$sal_PF[i] <- ifelse(length(which(building_master_test$posID == paste0(
+    building_master$teamID[i], "-PF"))) == 0, "NA", building_master_test$tot_sal[c(which(
+      building_master_test$posID == paste0(building_master$teamID[i], "-PF")))])
+  building_master$sal_PG[i] <- ifelse(length(which(building_master_test$posID == paste0(
+    building_master$teamID[i], "-PG"))) == 0, "NA", building_master_test$tot_sal[c(which(
+      building_master_test$posID == paste0(building_master$teamID[i], "-PG")))])
+  building_master$sal_SF[i] <- ifelse(length(which(building_master_test$posID == paste0(
+    building_master$teamID[i], "-SF"))) == 0, "NA", building_master_test$tot_sal[c(which(
+      building_master_test$posID == paste0(building_master$teamID[i], "-SF")))])
+  building_master$sal_SG[i] <- ifelse(length(which(building_master_test$posID == paste0(
+    building_master$teamID[i], "-SG"))) == 0, "NA", building_master_test$tot_sal[c(which(
+      building_master_test$posID == paste0(building_master$teamID[i], "-SG")))])
+  building_master$sal_Bench[i] <- ifelse(length(which(building_master_bench$benchID == paste0(
+    building_master$teamID[i], "-Bench"))) == 0, "NA", building_master_bench$tot_sal[c(which(
+      building_master_bench$benchID == paste0(building_master$teamID[i], "-Bench")))])
+  building_master$sal_Start[i] <- ifelse(length(which(building_master_bench$benchID == paste0(
+    building_master$teamID[i], "-Starter"))) == 0, "NA", building_master_bench$tot_sal[c(which(
+      building_master_bench$benchID == paste0(building_master$teamID[i], "-Starter")))])
+}
+
+
+
 closer_to_master <- sqldf('SELECT team_sal_elo.year_end, team_sal_elo.team_id, team_sal_elo.fran_id, 
-                    team_sal_elo.id, team_sal_elo.MaxElo, building_master.*
-                FROM team_sal_elo
-                LEFT JOIN building_master
-                ON team_sal_elo.id = building_master.teamID')
+                            team_sal_elo.id, team_sal_elo.MaxElo, building_master.*
+                          FROM team_sal_elo
+                          LEFT JOIN building_master
+                          ON team_sal_elo.id = building_master.teamID')
 
-master <- closer_to_master[-c(2, 6)]
+master <- closer_to_master[-c(1:3, 6)]
+master <- master[-c(which(is.na(master$MaxElo))),]
 
-write.csv(master, "master.csv")
+write.csv(master, "master.csv", row.names = FALSE)
+rm(list=ls())
+
+elo <- read.csv("elo_prepped.csv")
+team_salary <- read.csv("salary_prepped.csv")
+impact_stats_adj <- read.csv("impact_stats_adj.csv")
+
+elo$id <- paste0(elo$team_id, "-", elo$year_end)
+team_salary$id <- paste0(team_salary$team_id, "-", team_salary$year_end)
+impact_stats_adj$teamID <- paste0(impact_stats_adj$team_id, "-", impact_stats_adj$year_end)
+impact_stats_adj$posID <- paste0(impact_stats_adj$teamID, "-", impact_stats_adj$pos)
+impact_stats_adj$benchID <- paste0(impact_stats_adj$teamID, "-", impact_stats_adj$Bench)
+
+team_sal_elo <- sqldf('SELECT team_salary.*, elo.MaxElo
+                     FROM team_salary
+                     LEFT JOIN elo
+                     ON team_salary.id = elo.id')
+
+building_master_bench <- sqldf('SELECT impact_stats_adj.teamID, impact_stats_adj.benchID,
+                                  COUNT(impact_stats_adj.sal_2020) AS ct_bench,
+                                  SUM(impact_stats_adj.sal_2020) AS tot_sal
+                               FROM impact_stats_adj
+                               GROUP BY impact_stats_adj.benchID')
+
+building_master_test <- sqldf('SELECT impact_stats_adj.teamID, impact_stats_adj.posID,
+                                COUNT(impact_stats_adj.sal_2020) AS ct_pos,
+                                SUM(impact_stats_adj.sal_2020) AS tot_sal, 
+                                SUM(impact_stats_adj.sal_per_min) AS tot_spMP, 
+                                SUM(impact_stats_adj.sal_per_WS) AS tot_spWS, 
+                                SUM(impact_stats_adj.sal_per_BPM) AS tot_spBPM, 
+                                SUM(impact_stats_adj.sal_per_PTS) AS tot_spPTS,
+                                SUM(impact_stats_adj.sal_per_PER) AS tot_spPER, 
+                                SUM(impact_stats_adj.sal_per_VORP) AS tot_spVORP, 
+                                SUM(impact_stats_adj.sal_per_USG) AS tot_spUSG,
+                                AVG(impact_stats_adj.sal_2020) AS avg_sal, 
+                                AVG(impact_stats_adj.sal_per_min) AS avg_spMP, 
+                                AVG(impact_stats_adj.sal_per_WS) AS avg_spWS, 
+                                AVG(impact_stats_adj.sal_per_BPM) AS avg_spBPM, 
+                                AVG(impact_stats_adj.sal_per_PTS) AS avg_spPTS,
+                                AVG(impact_stats_adj.sal_per_PER) AS avg_spPER, 
+                                AVG(impact_stats_adj.sal_per_VORP) AS avg_spVORP, 
+                                AVG(impact_stats_adj.sal_per_USG) AS avg_spUSG,
+                                MAX(impact_stats_adj.sal_2020) AS max_sal, 
+                                MAX(impact_stats_adj.sal_per_min) AS max_spMP, 
+                                MAX(impact_stats_adj.sal_per_WS) AS max_spWS, 
+                                MAX(impact_stats_adj.sal_per_BPM) AS max_spBPM, 
+                                MAX(impact_stats_adj.sal_per_PTS) AS max_spPTS,
+                                MAX(impact_stats_adj.sal_per_PER) AS max_spPER, 
+                                MAX(impact_stats_adj.sal_per_VORP) AS max_spVORP, 
+                                MAX(impact_stats_adj.sal_per_USG) AS max_spUSG,
+                                MIN(impact_stats_adj.sal_2020) AS min_sal, 
+                                MIN(impact_stats_adj.sal_per_min) AS min_spMP, 
+                                MIN(impact_stats_adj.sal_per_WS) AS min_spWS, 
+                                MIN(impact_stats_adj.sal_per_BPM) AS min_spBPM, 
+                                MIN(impact_stats_adj.sal_per_PTS) AS min_spPTS,
+                                MIN(impact_stats_adj.sal_per_PER) AS min_spPER, 
+                                MIN(impact_stats_adj.sal_per_VORP) AS min_spVORP, 
+                                MIN(impact_stats_adj.sal_per_USG) AS min_spUSG,
+                                STDEV(impact_stats_adj.sal_2020) AS std_sal, 
+                                STDEV(impact_stats_adj.sal_per_min) AS std_spMP, 
+                                STDEV(impact_stats_adj.sal_per_WS) AS std_spWS, 
+                                STDEV(impact_stats_adj.sal_per_BPM) AS std_spBPM, 
+                                STDEV(impact_stats_adj.sal_per_PTS) AS std_spPTS,
+                                STDEV(impact_stats_adj.sal_per_PER) AS std_spPER, 
+                                STDEV(impact_stats_adj.sal_per_VORP) AS std_spVORP, 
+                                STDEV(impact_stats_adj.sal_per_USG) AS std_spUSG
+                             FROM impact_stats_adj
+                             GROUP BY impact_stats_adj.posID')
+
+building_master <- sqldf('SELECT impact_stats_adj.teamID,
+                            SUM(impact_stats_adj.sal_2020) AS tot_sal, 
+                            SUM(impact_stats_adj.sal_per_min) AS tot_spMP, 
+                            SUM(impact_stats_adj.sal_per_WS) AS tot_spWS, 
+                            SUM(impact_stats_adj.sal_per_BPM) AS tot_spBPM, 
+                            SUM(impact_stats_adj.sal_per_PTS) AS tot_spPTS,
+                            SUM(impact_stats_adj.sal_per_PER) AS tot_spPER, 
+                            SUM(impact_stats_adj.sal_per_VORP) AS tot_spVORP, 
+                            SUM(impact_stats_adj.sal_per_USG) AS tot_spUSG,
+                            AVG(impact_stats_adj.sal_2020) AS avg_sal, 
+                            AVG(impact_stats_adj.sal_per_min) AS avg_spMP, 
+                            AVG(impact_stats_adj.sal_per_WS) AS avg_spWS, 
+                            AVG(impact_stats_adj.sal_per_BPM) AS avg_spBPM, 
+                            AVG(impact_stats_adj.sal_per_PTS) AS avg_spPTS,
+                            AVG(impact_stats_adj.sal_per_PER) AS avg_spPER, 
+                            AVG(impact_stats_adj.sal_per_VORP) AS avg_spVORP, 
+                            AVG(impact_stats_adj.sal_per_USG) AS avg_spUSG,
+                            MAX(impact_stats_adj.sal_2020) AS max_sal, 
+                            MAX(impact_stats_adj.sal_per_min) AS max_spMP, 
+                            MAX(impact_stats_adj.sal_per_WS) AS max_spWS, 
+                            MAX(impact_stats_adj.sal_per_BPM) AS max_spBPM, 
+                            MAX(impact_stats_adj.sal_per_PTS) AS max_spPTS,
+                            MAX(impact_stats_adj.sal_per_PER) AS max_spPER, 
+                            MAX(impact_stats_adj.sal_per_VORP) AS max_spVORP, 
+                            MAX(impact_stats_adj.sal_per_USG) AS max_spUSG,
+                            MIN(impact_stats_adj.sal_2020) AS min_sal, 
+                            MIN(impact_stats_adj.sal_per_min) AS min_spMP, 
+                            MIN(impact_stats_adj.sal_per_WS) AS min_spWS, 
+                            MIN(impact_stats_adj.sal_per_BPM) AS min_spBPM, 
+                            MIN(impact_stats_adj.sal_per_PTS) AS min_spPTS,
+                            MIN(impact_stats_adj.sal_per_PER) AS min_spPER, 
+                            MIN(impact_stats_adj.sal_per_VORP) AS min_spVORP, 
+                            MIN(impact_stats_adj.sal_per_USG) AS min_spUSG,
+                            STDEV(impact_stats_adj.sal_2020) AS std_sal, 
+                            STDEV(impact_stats_adj.sal_per_min) AS std_spMP, 
+                            STDEV(impact_stats_adj.sal_per_WS) AS std_spWS, 
+                            STDEV(impact_stats_adj.sal_per_BPM) AS std_spBPM, 
+                            STDEV(impact_stats_adj.sal_per_PTS) AS std_spPTS,
+                            STDEV(impact_stats_adj.sal_per_PER) AS std_spPER, 
+                            STDEV(impact_stats_adj.sal_per_VORP) AS std_spVORP, 
+                            STDEV(impact_stats_adj.sal_per_USG) AS std_spUSG
+                        FROM impact_stats_adj
+                        GROUP BY impact_stats_adj.teamID')
+
+for (i in 1:length(building_master$teamID)) {
+  building_master$sal_C[i] <- ifelse(length(which(building_master_test$posID == paste0(
+    building_master$teamID[i], "-C"))) == 0, "NA", building_master_test$tot_sal[c(which(
+      building_master_test$posID == paste0(building_master$teamID[i], "-C")))])
+  building_master$sal_PF[i] <- ifelse(length(which(building_master_test$posID == paste0(
+    building_master$teamID[i], "-PF"))) == 0, "NA", building_master_test$tot_sal[c(which(
+      building_master_test$posID == paste0(building_master$teamID[i], "-PF")))])
+  building_master$sal_PG[i] <- ifelse(length(which(building_master_test$posID == paste0(
+    building_master$teamID[i], "-PG"))) == 0, "NA", building_master_test$tot_sal[c(which(
+      building_master_test$posID == paste0(building_master$teamID[i], "-PG")))])
+  building_master$sal_SF[i] <- ifelse(length(which(building_master_test$posID == paste0(
+    building_master$teamID[i], "-SF"))) == 0, "NA", building_master_test$tot_sal[c(which(
+      building_master_test$posID == paste0(building_master$teamID[i], "-SF")))])
+  building_master$sal_SG[i] <- ifelse(length(which(building_master_test$posID == paste0(
+    building_master$teamID[i], "-SG"))) == 0, "NA", building_master_test$tot_sal[c(which(
+      building_master_test$posID == paste0(building_master$teamID[i], "-SG")))])
+  building_master$sal_Bench[i] <- ifelse(length(which(building_master_bench$benchID == paste0(
+    building_master$teamID[i], "-Bench"))) == 0, "NA", building_master_bench$tot_sal[c(which(
+      building_master_bench$benchID == paste0(building_master$teamID[i], "-Bench")))])
+  building_master$sal_Start[i] <- ifelse(length(which(building_master_bench$benchID == paste0(
+    building_master$teamID[i], "-Starter"))) == 0, "NA", building_master_bench$tot_sal[c(which(
+      building_master_bench$benchID == paste0(building_master$teamID[i], "-Starter")))])
+}
+
+
+
+closer_to_master <- sqldf('SELECT team_sal_elo.year_end, team_sal_elo.team_id, team_sal_elo.fran_id, 
+                            team_sal_elo.id, team_sal_elo.MaxElo, building_master.*
+                          FROM team_sal_elo
+                          LEFT JOIN building_master
+                          ON team_sal_elo.id = building_master.teamID')
+
+master <- closer_to_master[-c(1:3, 6)]
+master <- master[-c(which(is.na(master$MaxElo))),]
+
+write.csv(master, "master_adj.csv", row.names = FALSE)
 rm(list=ls())
 
 
