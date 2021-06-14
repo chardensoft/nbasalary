@@ -8,6 +8,7 @@ library(bestglm)
 library(glmnet)
 library(gridExtra)
 library(randomForest)
+set.seed(seed = 3412)
 rm(list = ls())
 
 name <- "master.csv" #adjust to match the name of your data sheet, 
@@ -19,9 +20,10 @@ master_clean <- master[is.finite(rowSums(master[,-1])),]
 master_var_reg <- master_clean[,-1]
 
 ## Split into training and testing data
+train_rows <- sample(1:dim(master_var_reg)[1], floor(.8*dim(master_var_reg)[1]), replace = FALSE)
 
-train <- master_var_reg[1:516,]
-test <- master_var_reg[517:638,]
+train <- master_var_reg[train_rows,]
+test <- master_var_reg[-train_rows,]
 
 ### Initial Linear Model with all variables
 nbasalary_all_lm <- lm(MaxElo ~ ., data = train)
@@ -196,7 +198,7 @@ corrplot(cor(train), type = "upper")
 
 #### Organizing variables
 master_var_reg_selection <- train[, c(2:dim(train)[2], 1)]
-set.seed(seed = 3412)
+
 
 ##### LASSO
 salary_x <- as.matrix(master_var_reg_selection[, 1:(dim(master_var_reg_selection)[2]-1)])
@@ -265,13 +267,13 @@ corrplot(cor(selected_vars), type = "upper")
 ##Eliminate 5,9,12,13,10,15,3,
 ##due to multicollinearity and added back sal_Bench, sal_PG, sal_C, max_sal, tot_sal to take a closer
 
-selected_vars <- selected_vars[-c(3,5,10)]
-selected_vars <- cbind(tot_sal = train$tot_sal, selected_vars[1:15], max_sal = train$max_sal,
-                       sal_C = train$sal_C,
-                       selected_vars[16:20], sal_Bench = train$sal_Bench,
-                       selected_vars[21])
-
-corrplot(cor(selected_vars), type = "upper")
+# selected_vars <- selected_vars[-c(3,5,10)]
+# selected_vars <- cbind(tot_sal = train$tot_sal, selected_vars[1:15], max_sal = train$max_sal,
+#                        sal_C = train$sal_C,
+#                        selected_vars[16:20], sal_Bench = train$sal_Bench,
+#                        selected_vars[21])
+# 
+# corrplot(cor(selected_vars), type = "upper")
 # # 
 # # ggplot(data = train, mapping = aes(y = max_sal, x = std_sal)) +
 # #     geom_point() +
@@ -309,8 +311,8 @@ plot(rf_model)
 
 ## Testing both:
 ### Linear Model:
-lin_results <- data.frame(cbind(master$id[517:638], round(predict(nbasalary_lm, test), 3), 
-                                master$MaxElo[517:638]))
+lin_results <- data.frame(cbind(master_clean$id[-train_rows], round(predict(nbasalary_lm, test), 3), 
+                                master_clean$MaxElo[-train_rows]))
 names(lin_results) <- c("id", "predicted", "actual")
 lin_results$predicted <- as.numeric(lin_results$predicted)
 lin_results$actual <- as.numeric(lin_results$actual)
@@ -319,8 +321,8 @@ lin_perc_wn_100 <- length(which(abs(lin_results$diff) < 100)) / length(lin_resul
 
 
 ### Random Forest Model
-rf_results <- data.frame(cbind(master$id[517:638], round(predict(rf_model, test), 3),
-                                    master$MaxElo[517:638]))
+rf_results <- data.frame(cbind(master_clean$id[-train_rows], round(predict(rf_model, test), 3),
+                                    master_clean$MaxElo[-train_rows]))
 names(rf_results) <- c("id", "predicted", "actual")
 rf_results$predicted <- as.numeric(rf_results$predicted)
 rf_results$actual <- as.numeric(rf_results$actual)
