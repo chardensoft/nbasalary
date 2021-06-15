@@ -8,16 +8,28 @@ library(bestglm)
 library(glmnet)
 library(gridExtra)
 library(randomForest)
-set.seed(seed = 3412)
 rm(list = ls())
+set.seed(seed = 3412)
 
 name <- "master.csv" #adjust to match the name of your data sheet, 
 #put the id in column 1, the data you're trying to predict in column 2 and explanatory variables after
 
 master <- read.csv(file = name)
 
+# champions <- c("CHI-1991", "CHI-1992", "CHI-1993", "HOU-1994", "HOU-1995", "CHI-1996", "CHI-1997", "CHI-1998", "SAS-1999", "LAL-2000", 
+#                "LAL-2001", "LAL-2002", "SAS-2003", "DET-2004", "SAS-2005", "MIA-2006", "SAS-2007", "BOS-2008", "LAL-2009", "LAL-2010", 
+#                "DAL-2011", "MIA-2012", "MIA-2013", "SAS-2014", "GSW-2015", "CLE-2016", "GSW-2017", "GSW-2018", "TOR-2019", "LAL-2020")
+# 
+# master$champion <- ifelse(master$id %in% champions, "red", "black")
+# master_var_reg$champion <- "red"
+# master_var_reg$champion[-save] <- "black"
+# save <- which(master_clean$id %in% champions)
+
 master_clean <- master[is.finite(rowSums(master[,-1])),]
 master_var_reg <- master_clean[,-1]
+# master_var_reg$champion <- as.factor(master_var_reg$champion)
+
+
 
 ## Split into training and testing data
 train_rows <- sample(1:dim(master_var_reg)[1], floor(.8*dim(master_var_reg)[1]), replace = FALSE)
@@ -36,9 +48,17 @@ summary(nbasalary_all_lm)
 plots <- list()
 for (i in 2:length(train)) {
 plots[[i-1]] <- ggplot(data = train, mapping = aes_string(y = names(train)[i], 
-                                                                   x = names(train)[1])) +
-  geom_point()
+                                                                   x = names(train)[2])) +
+  geom_point(
+    # color = master$champion 
+    ) + geom_smooth(method="lm")
 }
+# plots2 <- list()
+# plots2[[1]] <- plots[[1]]
+# plots2[[2]] <- plots[[33]]
+# plots2[[3]] <- plots[[47]]
+# 
+# do.call(grid.arrange, plots2)
 
 # do.call(grid.arrange, plots)
 
@@ -60,9 +80,9 @@ plots[[i-1]] <- ggplot(data = train, mapping = aes_string(y = names(train)[i],
 # ggplot(data = train, mapping = aes(y = tot_spPER, x = MaxElo)) +
 #   geom_point() +
 #   theme_bw()
-# ggplot(data = train, mapping = aes(y = tot_spVORP, x = MaxElo)) +
-#   geom_point() +
-#   theme_bw()
+# ggplot(data = master, mapping = aes(y = tot_spVORP, x = MaxElo)) +
+#   geom_point(color = master$champion) +
+#   theme_bw() + geom_smooth(method="lm")
 # ggplot(data = train, mapping = aes(y = tot_spUSG, x = MaxElo)) +
 #   geom_point() +
 #   theme_bw()
@@ -160,9 +180,9 @@ plots[[i-1]] <- ggplot(data = train, mapping = aes_string(y = names(train)[i],
 # ggplot(data = train, mapping = aes(y = std_spPER, x = MaxElo)) +
 #   geom_point() +
 #   theme_bw()
-# ggplot(data = train, mapping = aes(y = std_spVORP, x = MaxElo)) +
-#   geom_point() +
-#   theme_bw()
+# ggplot(data = master, mapping = aes(y = std_spVORP, x = MaxElo)) +
+#   geom_point(color = master$champion) +
+#   theme_bw() + geom_smooth(method="lm")
 # ggplot(data = train, mapping = aes(y = std_spUSG, x = MaxElo)) +
 #   geom_point() +
 #   theme_bw()
@@ -262,18 +282,18 @@ for (i in 2:length(selected_vars)) {
 #### Multicollinearity
 
 corrplot(cor(selected_vars), type = "upper")
+rf_variables <- names(selected_vars)[-c(dim(selected_vars)[2])]
 
 
-##Eliminate 5,9,12,13,10,15,3,
-##due to multicollinearity and added back sal_Bench, sal_PG, sal_C, max_sal, tot_sal to take a closer
+##Eliminate 5:7,11,14:15,18:19,21:22,27 due to multicollinearity
 
-# selected_vars <- selected_vars[-c(3,5,10)]
+selected_vars <- selected_vars[-c(5:7,11,14:15,18:19,21:22,27)]
 # selected_vars <- cbind(tot_sal = train$tot_sal, selected_vars[1:15], max_sal = train$max_sal,
 #                        sal_C = train$sal_C,
 #                        selected_vars[16:20], sal_Bench = train$sal_Bench,
 #                        selected_vars[21])
 # 
-# corrplot(cor(selected_vars), type = "upper")
+corrplot(cor(selected_vars), type = "upper")
 # # 
 # # ggplot(data = train, mapping = aes(y = max_sal, x = std_sal)) +
 # #     geom_point() +
@@ -304,6 +324,7 @@ nbasalary_lm <- lm(fmla, data = train)
 summary(nbasalary_lm)
 
 ## Make Random Forest model with final variables
+fmla <- as.formula(paste(names(train)[1], " ~ ", paste(rf_variables, collapse= "+")))
 rf_model <- randomForest(fmla, data = train)
 summary(rf_model)
 varImpPlot(rf_model)
