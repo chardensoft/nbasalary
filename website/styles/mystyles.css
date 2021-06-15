@@ -43,6 +43,8 @@
 .b {
   font-family: serif;
   text-align: center;
+  margin: auto;
+  width: 100px;
 }
 .header{
     font-family: sans-serif;
