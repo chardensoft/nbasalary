@@ -26,6 +26,8 @@ master <- read.csv(file = name)
 # save <- which(master_clean$id %in% champions)
 
 master_clean <- master[is.finite(rowSums(master[,-1])),]
+write.csv(master_clean, "master_clean.csv", row.names = FALSE)
+write.csv(master_clean, "../Rshiny/master_clean.csv", row.names = FALSE)
 master_var_reg <- master_clean[,-1]
 # master_var_reg$champion <- as.factor(master_var_reg$champion)
 
@@ -349,6 +351,13 @@ rf_results$predicted <- as.numeric(rf_results$predicted)
 rf_results$actual <- as.numeric(rf_results$actual)
 rf_results$diff <- rf_results$actual - rf_results$predicted
 rf_perc_wn_100 <- length(which(abs(rf_results$diff) < 100)) / length(rf_results$diff)
+
+## save models to directory
+saveRDS(rf_model, "rf_model.rds")
+saveRDS(rf_model, "../Rshiny/rf_model.rds")
+saveRDS(nbasalary_lm, "lin_model.rds")
+saveRDS(nbasalary_lm, "../Rshiny/lin_model.rds")
+
 
 
 

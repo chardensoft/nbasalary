@@ -8,8 +8,6 @@ rm(list = ls())
 ##ELO PREP##
 
 full_elo <- read.csv(file = "elo.csv")
-full_elo <- full_elo[c(5, 9:10, 13)]
-names(full_elo)[1] <- "year_end"
 
 full_elo$fran_id <- ifelse(full_elo$team_id=="CHH", "Hornets", full_elo$fran_id)
 full_elo$team_id <- ifelse(full_elo$fran_id=="Hornets", "CHA", full_elo$team_id)
@@ -20,6 +18,10 @@ full_elo$team_id <- ifelse(full_elo$fran_id=="Thunder", "OKC", full_elo$team_id)
 full_elo$team_id <- ifelse(full_elo$fran_id=="Grizzlies", "MEM", full_elo$team_id)
 
 write.csv(full_elo, "elo_partialprep.csv", row.names = FALSE)
+write.csv(full_elo, "../Rshiny/elo_partialprep.csv", row.names = FALSE)
+
+full_elo <- full_elo[c(5, 9:10, 13)]
+names(full_elo)[1] <- "year_end"
 
 elo <- sqldf('SELECT *, MAX(elo_n) AS MaxElo 
              FROM full_elo 
