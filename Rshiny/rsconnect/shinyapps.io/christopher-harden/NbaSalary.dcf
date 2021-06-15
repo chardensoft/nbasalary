@@ -5,9 +5,9 @@ account: christopher-harden
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 4274674
-bundleId: 4718820
+bundleId: 4720179
 url: https://christopher-harden.shinyapps.io/NbaSalary/
-when: 1623762079.91336
-lastSyncTime: 1623762079.91338
+when: 1623786249.07299
+lastSyncTime: 1623786249.07302
 asMultiple: FALSE
 asStatic: FALSE
