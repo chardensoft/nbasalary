@@ -13,5 +13,5 @@ How can NBA teams analyze their salary decisions to best impact winning? How can
   - [Player Salary Data Set](https://www.kaggle.com/whitefero/nba-player-salary-19902017)
   
 ## Layout:
-stats: data and code for the nba salary model predicting max Elo.
-website: data and code for the [website displaying our data](https://nbasalary.sportsdada.net)
+  - stats: data and code for the nba salary model predicting max Elo.
+  - website: data and code for the [website displaying our data](https://nbasalary.sportsdada.net)
