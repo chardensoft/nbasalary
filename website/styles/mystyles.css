@@ -20,7 +20,7 @@
     font-weight: bold;
     text-align: center;
 }
-.a{
+.a {
     text-align: center;
     font-family: ;
     font-size: 25px;
@@ -40,6 +40,9 @@
     font-size: 26px;
     color: darkblue;
 
+}
+.link2 {
+  text-decoration: underline;
 }
 .p{
     font-family: serif;
