@@ -75,5 +75,6 @@ ui <- shinyUI(
                 max = 30,
                 value = 8),
     plotOutput("hist1"),
-    plotOutput("hist2")
+    plotOutput("hist2"),
+    plotOutput("plot2")
   ))

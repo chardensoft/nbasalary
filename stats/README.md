@@ -1,4 +1,4 @@
-# NBA stats explanation
+# NBA stats directory explanation
 
 ## Authors: Bradley Brown, Andrew Cannon, Isaac Corcoran, Jordan Khamvongsouk, Chris Harden, Felicia Seng
 

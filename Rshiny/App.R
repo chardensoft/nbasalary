@@ -8,10 +8,10 @@ library(DT)
 library(lubridate)
 library(scales)
 
-rmod <- readRDS("../stats/rf_model.rds")
-lmod <- readRDS("../stats/lin_model.rds")
-master <- read.csv("../stats/master_clean.csv")
-elo <- read.csv("../stats/elo_partialprep.csv")
+rmod <- readRDS("rf_model.rds")
+lmod <- readRDS("lin_model.rds")
+master <- read.csv("master_clean.csv")
+elo <- read.csv("elo_partialprep.csv")
 
 master$prediction <-  round(predict(rmod, master), 3)
 master$diff <- master$MaxElo - master$prediction
@@ -75,7 +75,8 @@ ui <- shinyUI(
                 max = 30,
                 value = 8),
     plotOutput("hist1"),
-    plotOutput("hist2")
+    plotOutput("hist2"),
+    plotOutput("plot2")
 ))
 
 server <- shinyServer(function(input, output, session) {
@@ -176,6 +177,37 @@ server <- shinyServer(function(input, output, session) {
       xlab("Cap per VORP by Team") +
       ylab("Teams in Bucket")
     
+  })
+  
+  output$plot2 <- renderPlot({
+    data <- elo %>% 
+      filter(team_id == substr(input$teamID, 1, 3))
+    # max_point <- data$game_id[which(data$elo_n == max(data$elo_n))]
+    
+    ggplot(data, mapping = aes(x = as.Date(date_game, format="%m/%d/%y"), y = elo_n)) +
+      geom_point(color = "blue") +
+      geom_point(data = data[which(data$notes == "Champion"),], pch = 21, fill = NA, size = 4,
+                 color = "red", stroke = 2) +
+      # geom_point(shape = 21, colour = "blue", size = 1, fill = NA,
+      #            alpha = .7, stroke = .5) + 
+      # geom_point(data = earnxstat.valid[earnxstat.valid$name == test, ], 
+      #            shape = 21, fill = NA, size = 1,
+      #            color = "red", stroke = .5) +
+      # geom_label_repel(data = earnxstat.valid[earnxstat.valid$name == test, ], 
+      #                  aes(label = name), 
+      #                  box.padding   = 0.3, 
+      #                  point.padding = 0.5,
+      #                  col = "red",
+      #                  segment.color = 'red') + 
+    # geom_vline(xintercept = mean(earnxstat.valid$fullbox), linetype = "dashed", col = "purple") + 
+    scale_x_date(date_breaks = "1 year",date_labels = "%Y") +
+    # scale_y_continuous(limits = c(-100, 1200),                  
+    #                    breaks = seq(-100, 1200, by = 100)) + 
+    theme_bw() +
+    labs(title = paste0("Historical Elo Rating for ", substr(input$teamID, 1, 3)), 
+         subtitle = "Championships Circled in Red") +
+    xlab("Date") +
+    ylab("Elo Rating")
   })
    
 })
