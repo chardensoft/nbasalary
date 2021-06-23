@@ -5,7 +5,7 @@
 ## Model:
 How can NBA teams analyze their salary decisions to best impact winning? How can salary data help you predict how a team will perform in the regular season and postseason?
 
-## Resultds:
+## Results:
   - stats directory: Data and code for the nba salary model predicting max Elo.
   - website directory: [Website displaying our data](https://nbasalary.sportsdada.net)
   - Rshiny directory: [R Shiny App](https://christopher-harden.shinyapps.io/NbaSalary/)
